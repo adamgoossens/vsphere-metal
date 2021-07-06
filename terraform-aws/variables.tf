@@ -13,14 +13,7 @@ variable "aws_region" {
   }
 }
 
-variable "fedora_amis" {
-  type = map
-  default = {
-    "us-east-1" = "ami-09e08e82e8f927ba4"
-    "us-east-2" = "ami-04d6c97822332a0a6"
-    "us-west-1" = "ami-0d828c0715f284b51"
-    "ap-southeast-1" = "ami-0de1a1ee38e9d0267"
-    "ap-southeast-2" = "ami-0627bcdb0bea81d1b"
-    "eu-west-2" = "ami-034794b0310a1d8b7"
-  }
+variable "equinix_gateway_public_ip" {
+  description = "Public IP of Equinix gateway. Will be added to Route53"
+  type = string
 }

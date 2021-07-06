@@ -22,5 +22,5 @@ resource "aws_route53_record" "star_metal" {
   name = "*.metal.${data.aws_route53_zone.metal.name}"
   type = "A"
   ttl = "120"
-  records = [${var.equinix_gw_public_ip]
+  records = ["${var.equinix_gateway_public_ip}"]
 }
