@@ -1,0 +1,122 @@
+- when:
+    - eq_outputs is not defined
+  block:
+    - community.aws.route53_info:
+        query: hosted_zone
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+      register: hzs
+
+    - set_fact:
+        hosted_zones: "{{ hzs | json_query('HostedZones[?Config.PrivateZone == `false`].Name') }}"
+
+    - pause:
+        prompt: |
+          Found these public hosted zones:
+
+          {% for zone in hosted_zones %}
+            {{ loop.index }} -  {{ zone }}
+          {% endfor %}
+
+          Enter the number of the hosted zone you want to use: 
+      register: input
+      until:
+        - input.user_input|int > 0 and input.user_input|int <= hosted_zones|length
+
+    - set_fact:
+        hosted_zone: "{{ hosted_zones[input.user_input|int -1][:-1] }}"
+        base_domain: "metal.{{ hosted_zones[input.user_input|int - 1][:-1] }}"
+
+    - name: query equinix API to find available facilities
+      uri:
+        url: https://api.equinix.com/metal/v1/capacity
+        headers:
+          X-Auth-Token: "{{ equinix_token }}"
+          Accept: application/json
+      register: eq_out
+
+    - set_fact:
+        available_facilities: "{{ eq_out.json.capacity | dict2items | json_query(query) }}"
+      vars:
+        query: "[?value.\"m3.large.x86\".level!='unavailable' && value.\"c3.small.x86\".level!='unavailable'].key"
+
+    - set_fact:
+        facility_queries: "{{ facility_queries|default([]) + [facility_to_find] }}"
+      vars:
+        facility_to_find:
+          facility: "{{ item }}"
+          plan: "m3.large.x86"
+          quantity: "1"
+      loop: "{{ available_facilities }}"
+
+    - name: check if we can provision into available metros
+      uri:
+        url: https://api.equinix.com/metal/v1/capacity
+        method: POST
+        headers:
+          X-Auth-Token: "{{ equinix_token }}"
+          Accept: application/json
+        body_format: json
+        body:
+          servers: "{{ facility_queries }}"
+      register: capacity
+
+    - set_fact:
+        available_facilities: "{{ capacity.json | json_query(query) }}"
+      vars:
+        query: "servers[?available].facility"
+
+    - pause:
+        prompt: |
+          The following facilities are available:
+
+          {{ available_facilities }}
+
+          Select which one to provision to: 
+      register: input
+      until:
+        - input.user_input in available_facilities
+
+    - set_fact:
+        target_facility: "{{ input.user_input }}"
+
+    - name: generate equinix terraform.tfvars
+      copy:
+        content: |
+          auth_token = "{{ equinix_token }}"
+          organization_id = "{{ equinix_org_id }}"
+          project_id = "{{ equinix_project_id }}"
+          create_project = false
+          s3_url = "{{ s3_url | default('https://s3.amazonaws.com') }}"
+          s3_access_key = "{{ s3_access_key }}"
+          s3_secret_key = "{{ s3_secret_key }}"
+          object_store_bucket_name = "{{ s3_bucket_name }}"
+          vcenter_iso_name = "{{ s3_vcenter_iso_name }}"
+          esxi_size = "{{ esxi_size }}"
+          esxi_host_count = "{{ esxi_host_count }}"
+          facility = "{{ target_facility }}"
+          domain_name = "{{ base_domain }}"
+        dest: "terraform/terraform.tfvars"
+
+    - name: execute terraform for Equinix (this will take at least 60 minutes)
+      community.general.terraform:
+        project_path: 'terraform/'
+        state: present
+
+- when:
+    - not aws_outputs is defined
+  block:
+    - name: generate aws terraform.tfvars
+      copy:
+        content: |
+          base_domain = "{{ hosted_zone }}"
+          aws_region = "{{ aws_region }}"
+        dest: terraform-aws/terraform.tfvars
+
+    - name: execute terraform for AWS
+      community.general.terraform:
+        project_path: 'terraform-aws/'
+        state: present
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"

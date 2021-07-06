@@ -1,0 +1,94 @@
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  roles:
+    - tf-outputs
+    - local-provision
+  pre_tasks:
+    - name: check for all required variables
+      fail:
+        msg: "Required var {{ item }} not provided"
+      when:
+        - hostvars[inventory_hostname][item] is not defined
+      loop:
+        - equinix_org_id
+        - equinix_token
+        - equinix_project_id
+        - s3_bucket_name
+        - s3_access_key
+        - s3_secret_key
+        - s3_vcenter_iso_name
+
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  roles:
+    - tf-outputs
+    - local-certs-and-hosts
+  post_tasks:
+    - add_host:
+        name: metalgw
+        ansible_host: "{{ aws_outputs.gw_fqdn.value }}"
+        ansible_user: 'fedora'
+        ansible_ssh_private_key_file: "terraform-aws/id_rsa_metalgw"
+
+    - add_host:
+        name: eqgw
+        ansible_host: "{{ eq_outputs.bastion_host.value }}"
+        ansible_ssh_private_key_file: "{{ eq_outputs.ssh_key_path.value.replace('$HOME', lookup('env', 'HOME')) }}"
+        ansible_user: 'root'
+
+- hosts: metalgw
+  roles:
+    - tf-outputs
+    - mgw-keys-and-packages
+    - mgw-haproxy
+    - mgw-vpn
+
+- hosts: eqgw
+  gather_facts: false
+  roles:
+    - tf-outputs
+    - eqgw-dns-and-certs
+    - eqgw-registry
+    - eqgw-release-mirror
+
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - pause:
+        prompt: |
+          Deployment complete.
+
+          AWS Gateway Node is available at {{ hostvars['metalgw']['ansible_host'] }}:
+            ssh fedora@ {{ hostvars['metalgw']['ansible_host'] }} -i terraform-aws/id_rsa_metalgw
+
+          Equinix Gateway is available at {{ hostvars['eqgw']['ansible_host'] }}
+            ssh root@{{ hostvars['eqgw']['ansible_host'] }} -i {{ eq_outputs.ssh_key_path.value }}
+
+          vCenter is available at https://{{ eq_outputs.vcenter_ip.value }}
+
+          vCenter credentials are {{ eq_outputs.vcenter_username.value }} / {{ eq_outputs.vcenter_password.value }}
+
+          API and apps URLs for up to {{ max_clusters }} have been configured:
+
+          {% for n in range(max_clusters) %}
+          {% set i=n+1 %}
+            Cluster {{i}}
+              - https://api.vsphere{{i}}.{{ base_domain }}
+              - *.apps.vsphere{{i}}.{{ base_domain }} (both HTTP and HTTPS)
+              
+              API VIP: 172.16.0.{{i}}0
+              Apps VIP: 172.16.0.{{i}}1
+
+          {% endfor %}
+
+          The cluster URLs above will resolve to the Elastic IP of the AWS gateway 
+          node from outside vSphere; they will resolve to the respective VIPs from within vSphere.
+
+          vSphere certificate is available in the file vc.pem in this directory.
+
+          A Secret has been created that will add this vSphere instance as a provider
+          connection in ACM; see the file vsphere-acm-secret.yaml in this directory. Create that
+          Secret into a namespace of your choosing and a new provider should appear in ACM labelled
+          'vsphere-equinix'.

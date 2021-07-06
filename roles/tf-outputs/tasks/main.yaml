@@ -1,0 +1,33 @@
+- name: check if eq terraform.tfstate exists
+  stat:
+    path: "{{ playbook_dir }}/terraform/terraform.tfstate"
+  register: eq_tfstate
+  delegate_to: localhost
+  connection: local
+
+- name: check if aws terraform.tfstate exists
+  stat:
+    path: "{{ playbook_dir }}/terraform-aws/terraform.tfstate"
+  register: aws_tfstate
+  delegate_to: localhost
+  connection: local
+
+- name: parse tfstate for equinix
+  when:
+    - eq_tfstate.stat.exists
+  set_fact:
+    eq_outputs: "{{ tfstate.outputs }}"
+    eq_resources: "{{ tfstate.resources }}"
+    base_domain: "{{ tfstate.outputs.vcenter_fqdn.value.split('.')[1:] | join('.') }}"
+    hosted_zone: "{{ tfstate.outputs.vcenter_fqdn.value.split('.')[2:] | join('.') }}"
+  vars:
+    tfstate: "{{ lookup('file', 'terraform/terraform.tfstate') | from_json }}"
+
+- name: parse tfstate for aws
+  when:
+    - aws_tfstate.stat.exists
+  set_fact:
+    aws_outputs: "{{ tfstate.outputs }}"
+    aws_resources: "{{ tfstate.resources }}"
+  vars:
+    tfstate: "{{ lookup('file', 'terraform-aws/terraform.tfstate') | from_json }}"

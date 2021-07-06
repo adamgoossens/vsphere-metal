@@ -1,0 +1,85 @@
+###############
+#
+# Maximum number of clusters you wil deploy on this
+# environment. This is only used to pre-emptively add
+# all the required haproxy config and DNS config, so
+# that "api.vsphereX.<base_fqdn>" and the like will
+# resolve everywhere.
+#
+###############
+max_clusters: 3
+openshift_version: latest
+
+###############
+#
+# Used for the AWS environment that will
+# host the gateway across to Equinix
+#
+###############
+aws_region: "ap-southeast-2"
+aws_access_key: "{{ vault_aws_access_key }}"
+aws_secret_key: "{{ vault_aws_secret_key }}"
+
+##################
+#
+# Equinix details
+#
+##################
+
+#
+# API details
+#
+# You must provide a token, the Organization ID and the Project ID.
+#
+equinix_token: "{{ vault_equinix_token }}"
+#equinix_org_id: ""
+#equinix_project_id: ""
+
+#
+# The size of the server provisioned in Equinix.
+#
+# Default is m3.large.x86. This is a single host, 256GB RAM, 24 cores, ~7TB NVMe.
+# Should be more than enough
+#
+esxi_size: "m3.large.x86"
+esxi_host_count: "1"
+
+#####################
+#
+# AWS S3 Connectivity
+#
+#####################
+#
+# Change this if you have a local S3 source. Generally, leave alone.
+#
+# s3_url: "https://s3.amazonaws.com"
+
+#
+# You can override the keys used when the Equinix provisioning is occurring
+# (it pulls from the associated S3 bucket). If you omit these, it wil
+# default to aws_access_key and aws_secret_key above. Make sure that key
+# can ready the bucket.
+#
+# You must pre-create the S3 bucket and upload the vCenter ISO.
+#
+s3_access_key: "{{ vault_s3_access_key | default(vault_aws_access_key) }}"
+s3_secret_key: "{{ vault_s3_secret_key | default(vault_aws_secret_key) }}"
+
+#
+# Change this to match your S3 bucket name
+#
+#s3_bucket_name: "vmware-ag-261cd26c"
+
+#
+# Change this to match whatever version you have uploaded to your S3 bucket.
+#
+#s3_vcenter_iso_name: "VMware-VCSA-all-7.0.2-17958471.iso"
+
+#######################################
+#
+# Pull Secret needed for generating the
+# Secret representing the Provider Connection
+# in ACM.
+#
+#########################################
+pull_secret: '{{ vault_pull_secret }}'

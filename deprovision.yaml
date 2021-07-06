@@ -1,0 +1,22 @@
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: tear down Equinix environment
+      community.general.terraform:
+        project_path: 'terraform/'
+        state: absent
+
+    - name: tear down AWS environment
+      community.general.terraform:
+        project_path: 'terraform-aws/'
+        state: absent
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+
+    - name: remove terraform.tfstate
+      file:
+        path: "{{ item }}/terraform.tfstate"
+        state: absent
+      loop: ['terraform', 'terraform-aws']

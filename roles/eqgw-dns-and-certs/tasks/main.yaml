@@ -1,0 +1,56 @@
+- name: template dnsmasq config for local dns entries
+  template:
+    src: "templates/dns.j2"
+    dest: "/etc/dnsmasq.d/dns.conf"
+  register: dns
+  vars:
+    base_domain: "{{ hostvars['localhost']['base_domain'] }}"
+
+- name: restart dnsmasq when config changes
+  when:
+    - dns.changed
+  service:
+    name: dnsmasq
+    state: restarted
+
+- shell: "which openshift-install"
+  register: which
+  ignore_errors: true
+
+- when:
+    - which.rc > 0
+  block:
+    - name: fetch openshift clients
+      get_url:
+        url: "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/{{ openshift_version|default('latest') }}/{{ item }}"
+        dest: "/root"
+      loop:
+        - openshift-install-linux.tar.gz
+        - openshift-client-linux.tar.gz
+
+    - name: untar openshift clients
+      unarchive:
+        src: "/root/{{ item }}"
+        dest: "/usr/local/bin"
+        remote_src: yes
+      loop:
+        - openshift-install-linux.tar.gz
+        - openshift-client-linux.tar.gz
+
+    - name: make clients executable
+      file:
+        path: "/usr/local/bin/{{item}}"
+        mode: 0755
+        state: touch
+      loop:
+        - oc
+        - kubectl
+        - openshift-install
+
+- name: copy vc.pem to the system trust (ubuntu)
+  copy:
+    src: vc.pem
+    dest: /usr/local/share/ca-certificates/vc.crt
+
+- name: update ca trust
+  shell: "/usr/sbin/update-ca-certificates"

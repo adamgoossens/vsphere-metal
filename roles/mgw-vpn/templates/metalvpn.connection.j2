@@ -1,0 +1,33 @@
+[connection]
+id=metalvpn
+uuid=cd65278c-e8e5-4574-8c89-b0e929ab8992
+type=vpn
+permissions=
+
+[vpn]
+gateway={{ eq_outputs.vpn_endpoint.value }}
+ipsec-enabled=yes
+ipsec-psk={{ eq_outputs.vpn_psk.value }}
+machine-auth-type=psk
+mru=1400
+mtu=1400
+password-flags=0
+user=vm_admin
+user-auth-type=password
+service-type=org.freedesktop.NetworkManager.l2tp
+
+[vpn-secrets]
+password={{ eq_outputs.vpn_password.value }}
+
+[ipv4]
+dns-search=
+method=auto
+ignore-auto-routes=true
+never-default=true
+
+[ipv6]
+addr-gen-mode=stable-privacy
+dns-search=
+method=auto
+
+[proxy]

@@ -1,0 +1,57 @@
+- name: parse pull_secret variable
+  set_fact:
+    pull_secret_mirror: "{{ pull_secret | combine(auth | items2dict) }}"
+  vars:
+    auth:
+      - key: "registry.{{base_domain}}"
+        value:
+          auth: "{{ 'openshift:1800redhat' | b64encode }}"
+          email: "does@not.matter"
+
+- name: write pull secret to /root/pull.json
+  copy:
+    content: "{{pull_secret_mirror | to_json}}"
+    dest: "/root/pull.json"
+    mode: "0600"
+
+- name: execute oc adm release mirror
+  shell: >
+    oc adm release mirror 
+    -a /root/pull.json 
+    --from=quay.io/openshift-release-dev/ocp-release:{{ openshift_version }}-x86_64 
+    --to=registry.{{ base_domain }}/openshift4 
+    --to-release-image=registry.{{base_domain}}/ocp-release:{{ openshift_version }}-x86_64
+  register: ocadm
+
+- name: generate section for install-config.yaml
+  copy:
+    content: |
+      imageContentSources:
+      - mirrors:
+        - registry.{{ base_domain }}/openshift4
+        - registry.{{ base_domain }}/ocp-release
+        source: quay.io/openshift-release-dev/ocp-release
+      - mirrors:
+        - registry.{{ base_domain }}/openshift4
+        - registry.{{ base_domain }}/ocp-release
+        source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+    dest: /root/install-config-content-sources.yaml
+
+- name: generate imagecontentsourcepolicy.yaml
+  copy:
+    content: |
+      apiVersion: operator.openshift.io/v1alpha1
+      kind: ImageContentSourcePolicy
+      metadata:
+        name: 'icsp-metal'
+      spec:
+        repositoryDigestMirrors:
+        - mirrors:
+          - registry.{{ base_domain }}/openshift4
+          - registry.{{ base_domain }}/ocp-release
+          source: quay.io/openshift-release-dev/ocp-release
+        - mirrors:
+          - registry.{{ base_domain }}/openshift4
+          - registry.{{ base_domain }}/ocp-release
+          source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+    dest: /root/imagecontentsourcepolicy.yaml

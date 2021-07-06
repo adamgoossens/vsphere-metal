@@ -1,0 +1,127 @@
+- name: add opensuse gpg key
+  get_url:
+    url: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/Release.key
+    dest: /etc/apt/trusted.gpg.d/opensuse-1804.asc
+  register: key
+
+- name: add opensuse kubic repo
+  apt_repository:
+    repo: deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/ /
+    state: present
+  register: repo
+
+- when:
+    - key.changed or repo.changed
+  name: Update apt-get
+  shell: "/usr/bin/apt-get update"
+
+- name: install skopeo and podman
+  package:
+    name:
+      - podman
+      - skopeo
+      - python-openssl
+      - python-passlib
+    state: latest
+
+- name: ensure required directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - /opt/registry/data
+    - /opt/registry/auth
+    - /etc/ssl/csr
+
+- set_fact:
+    reg_cert: "/root/registry.pem"
+    reg_key: "/root/registry.key"
+    reg_csr: "/root/registry.csr"
+    ca_cert: "/usr/local/share/ca-certificates/metalca.crt"
+    ca_key: "/etc/ssl/private/ca.pem"
+    ca_csr: "/etc/ssl/csr/ca.csr"
+
+- stat:
+    path: "{{ ca_cert }}"
+  register: metalca
+
+- when:
+    - not metalca.stat.exists
+  block:
+    - name: generate private key for CA
+      community.crypto.openssl_privatekey:
+        path: "{{ ca_key }}"
+
+    - name: generate CA CSR
+      community.crypto.openssl_csr:
+        path: "{{ ca_csr }}"
+        privatekey_path: "{{ ca_key }}"
+        common_name: "metal-ca"
+        basicConstraints:
+          - 'CA:TRUE'
+
+    - name: sign CA CSR
+      community.crypto.openssl_certificate:
+        path: "{{ ca_cert }}"
+        csr_path: "{{ ca_csr }}"
+        privatekey_path: "{{ ca_key }}"
+        provider: selfsigned
+
+- stat:
+    path: "{{ reg_cert }}"
+  register: regcert
+
+- when:
+    - not regcert.stat.exists
+  block:
+    - name: generate private key for registry
+      community.crypto.openssl_privatekey:
+        path: "{{ reg_key }}"
+
+    - name: generate certificate signing request
+      community.crypto.openssl_csr:
+        path: "{{ reg_csr }}"
+        privatekey_path: "{{ reg_key }}"
+        subject_alt_name: "DNS:registry.{{base_domain}}"
+
+    - name: sign CSR for registry
+      community.crypto.openssl_certificate:
+        path: "{{ reg_cert }}"
+        csr_path: "{{ reg_csr }}"
+        privatekey_path: "{{ reg_key }}"
+        provider: ownca
+        ownca_path: "{{ ca_cert }}"
+        ownca_privatekey_path: "{{ ca_key }}"
+
+- stat:
+    path: "/opt/registry/auth/htpasswd"
+  register: htpasswd
+
+- when:
+    - not htpasswd.stat.exists
+  name: create registry htpasswd file
+  community.general.htpasswd:
+    create: yes
+    path: /opt/registry/auth/htpasswd
+    name: openshift
+    password: '1800redhat'
+    mode: 0644
+
+- name: start the docker v2 registry
+  containers.podman.podman_container:
+    name: mirror-registry
+    image: docker.io/library/registry:2
+    force_restart: yes
+    env:
+      REGISTRY_COMPATIBILITY_SCHEMA1_ENABLED: "true"
+      REGISTRY_HTTP_TLS_CERTIFICATE: "/etc/pki/tls/registry.pem"
+      REGISTRY_HTTP_TLS_KEY: "/etc/pki/tls/private/registry.pem"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volume:
+      - /opt/registry/data:/var/lib/registry
+      - /opt/registry/auth:/auth
+      - "{{ reg_cert }}:/etc/pki/tls/registry.pem"
+      - "{{ reg_key }}:/etc/pki/tls/private/registry.pem"
+    publish:
+      - 172.16.0.1:443:5000
+    state: present

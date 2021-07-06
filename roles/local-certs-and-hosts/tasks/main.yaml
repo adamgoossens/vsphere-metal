@@ -1,0 +1,56 @@
+- stat:
+    path: vc.pem
+  register: vcfile
+
+- when:
+    - not vcfile.stat.exists
+  block:
+    - tempfile:
+        state: directory
+      register: certs_temp
+
+    - name: download vcenter certs
+      get_url:
+        url: "https://{{ eq_outputs.vcenter_ip.value }}/certs/download.zip"
+        dest: "{{ certs_temp.path }}/certs.zip"
+        validate_certs: false
+
+    - file:
+        path: "{{ certs_temp.path }}/vcenter_certs"
+        state: directory
+
+    - name: unpack vcenter certs
+      unarchive:
+        remote_src: yes
+        src: "{{ certs_temp.path }}/certs.zip"
+        dest: "{{ certs_temp.path }}/vcenter_certs"
+
+    - name: convert linux certs to PEM files
+      shell: |
+        rm vc.pem || echo
+        for cert in {{ certs_temp.path }}/vcenter_certs/certs/lin/*.0
+        do
+          openssl x509 -in $cert -outform PEM >> vc.pem
+        done
+
+    - set_fact:
+        cacert_clean: "{{ lookup('file', 'vc.pem').replace('\n', '\\n') }}"
+        key_clean: "{{ lookup('file', 'terraform-aws/id_rsa_metalgw').replace('\n','\\n') }}"
+    - template:
+        src: provider-connection-secret.yaml.j2
+        dest: "vsphere-acm-secret.yaml"
+      vars:
+        metadata: |
+          username: "{{ eq_outputs.vcenter_username.value }}"
+          password: "{{ eq_outputs.vcenter_password.value }}"
+          vcenter: "{{ eq_outputs.vcenter_ip.value }}"
+          cacertificate: "{{ cacert_clean }}"
+          vmClusterName: "Metal-1"
+          datacenter: "Metal"
+          datastore: "datastore1"
+          baseDomain: "{{ base_domain }}"
+          pullSecret: '{{ pull_secret }}'
+          sshPublickey: "{{ lookup('file', 'terraform-aws/id_rsa_metalgw.pub') }}"
+          sshPrivatekey: "{{ key_clean }}"
+
+

@@ -1,0 +1,45 @@
+- name: copy remote edge gateway SSH key
+  copy:
+    src: "{{ eq_outputs.ssh_key_path.value | regex_replace('\\$HOME', lookup('env', 'HOME')) }}"
+    dest: "/home/fedora/edge_gateway_key"
+    mode: 0400
+
+- name: ensure required packages are installed
+  become: true
+  package:
+    name:
+      - haproxy
+      - unzip
+      - openssl
+      - NetworkManager-l2tp
+      - libreswan
+      - dnf-utils
+    state: present
+
+- name: ensure all packages are up to date
+  become: true
+  package:
+    name: '*'
+    state: latest
+
+- name: ensure ppp_generic starts on boot
+  copy:
+    dest: "/etc/modules-load.d/ppp_generic"
+    content: |
+      ppp_generic
+  become: true
+
+- name: load ppp_generic kernel module
+  community.general.modprobe:
+    name: ppp_generic
+    state: present
+  become: true
+  register: probe
+  failed_when: false
+
+- name: reboot if module probe failed
+  become: true
+  reboot:
+  when:
+    - probe.stderr is defined
+    - "'not found in directory' in probe.stderr"
