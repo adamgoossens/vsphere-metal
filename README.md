@@ -92,6 +92,8 @@ Firstly - clone the required submodule:
 git submodule init
 ```
 
+Next, set your required values in `group_vars/all/all.yml`.
+
 To provision:
 
 ```
