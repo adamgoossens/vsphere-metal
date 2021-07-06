@@ -69,17 +69,41 @@ The `provision.yml` playbook perform the following tasks:
     4. `terraform apply` is run to deploy the Equinix environment. **This takes at least 60 minutes**.
 5. AWS provisioning occurs to add the required Route53 record (we use a very short TTL here to account for dynamic environments).
 6. Fetch the vCenter CA certificate and store it locally on the Ansible host.
-7. Deploy haproxy and template haproxy config.
+7. Deploy haproxy and template haproxy config; start the haproxy service.
 8. Establish some additional `dnsmasq` records needed for local resolution.
-9. Add the vCenter certificate to the system trust store.
+9. Add the vCenter certificate to the Equinix gateway's trust store.
 10. Install various repos and packages (e.g. `podman`, `skopeo`).
-11. Download and install into `$PATH` the `openshift-install` and `oc` binaries.
+11. Download and install into `/usr/local/bin` the `openshift-install` and `oc` binaries.
 12. Deploy and configure a simple docker v2 registry.
 13. Mirror the target openshift release into this registry.
 14. Generate an `install-config-content-sources.yaml` and `imagecontentsourcepolicy.yaml` for disconnected deployments.
 15. Dump a collection of needed detail to the screen.
 
+## What can I configure?
+
+See `group_vars/all/all.yml` ; these are documented.
+
+You may wish to provide the sensitive values in an Ansible Vault; the default values in `group_vars/all/all.yml` assume this.
+
+## Can I provision more than one ESXi host?
+
+Yes, but you'll probably want to change the `esxi_host_size` variable to something smaller, like `c3.medium.x86`.
+
+This will also trigger some additional deployment logic in the Equinix terraform, namely the configuration of vSAN. YMMV here.
+
+## What do I get in the standard deployment?
+
+The default ESXi host used here (`m3.large.x86`) has the following specifications:
+
+* 24 cores / 48 threads @ 2.5GHz (AMD EPYC)
+* 256 GB DDR4
+* 2x 3.8TB NVMe.
+
+More than enough for a few OCP clusters.
+
 ## What can go wrong?
+
+There's a few ways the provisioning can go sideways. The solution in all cases is to deprovision and start again.
 
 ### Equinix provisioning fails due to not enough capacity
 
@@ -95,3 +119,9 @@ provisioning. Unfortunately there's no way back here - deprovision the environme
 
 Brace yourself for a failure - once again, there's not enough capacity for the ESXi host. Let the playbook fail, then deprovision
 and start again with a different facility.
+
+## How much does this cost?
+
+Currently, as of July 2021, the prices for the environment are around $2 - $2.50 USD per hour. It takes at least an hour to provision.
+
+Best not to leave this running long term.
