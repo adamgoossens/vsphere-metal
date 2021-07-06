@@ -96,12 +96,13 @@
           esxi_host_count = "{{ esxi_host_count }}"
           facility = "{{ target_facility }}"
           domain_name = "{{ base_domain }}"
-        dest: "terraform/terraform.tfvars"
+        dest: "terraform-equinix/terraform.tfvars"
 
     - name: execute terraform for Equinix (this will take at least 60 minutes)
       community.general.terraform:
-        project_path: 'terraform/'
+        project_path: 'terraform-equinix/'
         state: present
+        force_init: yes
 
 - when:
     - not aws_outputs is defined
@@ -111,12 +112,14 @@
         content: |
           base_domain = "{{ hosted_zone }}"
           aws_region = "{{ aws_region }}"
+          equinix_gw_public_ip = "{{ eq_outputs.bastion_ip.value }}"
         dest: terraform-aws/terraform.tfvars
 
     - name: execute terraform for AWS
       community.general.terraform:
         project_path: 'terraform-aws/'
         state: present
+        force_init: yes
       environment:
         AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
         AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
