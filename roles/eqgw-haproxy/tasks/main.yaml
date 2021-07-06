@@ -1,17 +1,8 @@
-- name: ensure haproxy is installed
+- name: ensure required packages are installed
   package:
-    name: haproxy
+    name:
+      - haproxy
     state: present
-
-- name: set sebooleans
-  become: true
-  seboolean:
-    name: "{{ item }}"
-    state: yes
-    persistent: yes
-  loop:
-    - haproxy_connect_any
-    - nis_enabled
 
 - name: template haproxy.cfg
   template:

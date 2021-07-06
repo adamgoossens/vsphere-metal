@@ -33,24 +33,41 @@
           openssl x509 -in $cert -outform PEM >> vc.pem
         done
 
-    - set_fact:
-        cacert_clean: "{{ lookup('file', 'vc.pem').replace('\n', '\\n') }}"
-        key_clean: "{{ lookup('file', 'terraform-aws/id_rsa_metalgw').replace('\n','\\n') }}"
-    - template:
-        src: provider-connection-secret.yaml.j2
-        dest: "vsphere-acm-secret.yaml"
-      vars:
-        metadata: |
-          username: "{{ eq_outputs.vcenter_username.value }}"
-          password: "{{ eq_outputs.vcenter_password.value }}"
-          vcenter: "{{ eq_outputs.vcenter_ip.value }}"
-          cacertificate: "{{ cacert_clean }}"
-          vmClusterName: "Metal-1"
-          datacenter: "Metal"
-          datastore: "datastore1"
-          baseDomain: "{{ base_domain }}"
-          pullSecret: '{{ pull_secret }}'
-          sshPublickey: "{{ lookup('file', 'terraform-aws/id_rsa_metalgw.pub') }}"
-          sshPrivatekey: "{{ key_clean }}"
+- set_fact:
+    keypath_private: "{{ kp }}"
+    keypath_public: "{{ kp }}.pub"
+  vars:
+    kp: "{{ eq_outputs.ssh_key_path.value | regex_replace('\\$HOME', lookup('env', 'HOME')) }}"
+
+- stat:
+    path: "{{ keypath_public }}"
+  register: pubkey
+
+- name: derive public key if it doesn't exist
+  when:
+    - not pubkey.stat.exists
+  copy:
+    content: "{{ lookup('pipe', 'ssh-keygen -y -f ' + keypath_private) }}"
+    dest: "{{ keypath_public }}"
+
+- set_fact:
+    cacert_clean: "{{ lookup('file', 'vc.pem').replace('\n', '\\n') }}"
+    key_clean: "{{ lookup('file', keypath_private).replace('\n','\\n') }}"
+- template:
+    src: provider-connection-secret.yaml.j2
+    dest: "vsphere-acm-secret.yaml"
+  vars:
+    metadata: |
+      username: "{{ eq_outputs.vcenter_username.value }}"
+      password: "{{ eq_outputs.vcenter_password.value }}"
+      vcenter: "{{ eq_outputs.vcenter_ip.value }}"
+      cacertificate: "{{ cacert_clean }}"
+      vmClusterName: "Metal-1"
+      datacenter: "Metal"
+      datastore: "datastore1"
+      baseDomain: "{{ base_domain }}"
+      pullSecret: '{{ pull_secret }}'
+      sshPublickey: "{{ lookup('file', keypath_public) }}"
+      sshPrivatekey: "{{ key_clean }}"
 
 

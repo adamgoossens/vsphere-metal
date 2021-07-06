@@ -104,6 +104,10 @@
         state: present
         force_init: yes
 
+    # re-run this now that Terraform has completed
+    - include_role:
+        name: tf-outputs
+
 - when:
     - not aws_outputs is defined
   block:
@@ -112,7 +116,7 @@
         content: |
           base_domain = "{{ hosted_zone }}"
           aws_region = "{{ aws_region }}"
-          equinix_gw_public_ip = "{{ eq_outputs.bastion_ip.value }}"
+          equinix_gateway_public_ip = "{{ eq_outputs.bastion_host.value }}"
         dest: terraform-aws/terraform.tfvars
 
     - name: execute terraform for AWS

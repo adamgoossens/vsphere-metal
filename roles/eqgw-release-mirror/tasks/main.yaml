@@ -14,13 +14,24 @@
     dest: "/root/pull.json"
     mode: "0600"
 
+- name: get openshift version
+  shell: "openshift-install version | head -n 1 | cut -f2 -d' '"
+  register: openshift_version_raw
+
+- name: check if openshift release image has mirrored already
+  shell: "skopeo inspect docker://registry.{{ base_domain }}/ocp-release:{{ openshift_version_raw.stdout }}-x86_64"
+  ignore_errors: true
+  register: inspect
+
 - name: execute oc adm release mirror
+  when:
+    - inspect.failed
   shell: >
     oc adm release mirror 
     -a /root/pull.json 
-    --from=quay.io/openshift-release-dev/ocp-release:{{ openshift_version }}-x86_64 
+    --from=quay.io/openshift-release-dev/ocp-release:{{ openshift_version_raw.stdout }}-x86_64 
     --to=registry.{{ base_domain }}/openshift4 
-    --to-release-image=registry.{{base_domain}}/ocp-release:{{ openshift_version }}-x86_64
+    --to-release-image=registry.{{base_domain}}/ocp-release:{{ openshift_version_raw.stdout }}-x86_64
   register: ocadm
 
 - name: generate section for install-config.yaml

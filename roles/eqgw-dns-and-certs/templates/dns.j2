@@ -1,6 +1,6 @@
 {% for n in range(max_clusters) %}
 {% set i=n+1 %}
-address=/api.vsphere{{i}}.{{base_domain}}/172.16.0.{{i}}0
-address=/.apps.vsphere{{i}}.{{base_domain}}/172.16.0.{{i}}1
+address=/api.{{cluster_name_prefix}}{{i}}.{{base_domain}}/172.16.0.{{i}}0
+address=/.apps.{{cluster_name_prefix}}{{i}}.{{base_domain}}/172.16.0.{{i}}1
 {% endfor %}
 address=/registry.{{base_domain}}/172.16.0.1

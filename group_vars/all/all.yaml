@@ -9,6 +9,7 @@
 ###############
 max_clusters: 3
 openshift_version: latest
+cluster_name_prefix: vsphere
 
 ###############
 #
@@ -68,12 +69,12 @@ s3_secret_key: "{{ vault_s3_secret_key | default(vault_aws_secret_key) }}"
 #
 # Change this to match your S3 bucket name
 #
-#s3_bucket_name: "vmware-ag-261cd26c"
+#s3_bucket_name: ""
 
 #
 # Change this to match whatever version you have uploaded to your S3 bucket.
 #
-#s3_vcenter_iso_name: "VMware-VCSA-all-7.0.2-17958471.iso"
+#s3_vcenter_iso_name: ""
 
 #######################################
 #

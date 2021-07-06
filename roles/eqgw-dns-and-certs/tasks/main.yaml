@@ -1,3 +1,14 @@
+- name: copy remote edge gateway SSH keys
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0400
+  loop:
+    - src: "{{ hostvars['localhost']['keypath_private'] }}"
+      dest: "/root/id_rsa_edge_gateway_key"
+    - src: "{{ hostvars['localhost']['keypath_public'] }}"
+      dest: "/root/id_rsa_edge_gateway_key.pub"
+
 - name: template dnsmasq config for local dns entries
   template:
     src: "templates/dns.j2"

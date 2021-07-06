@@ -81,6 +81,12 @@ The `provision.yml` playbook perform the following tasks:
 
 ## How do I run this?
 
+Firstly - clone the required submodule:
+
+```
+git submodule init
+```
+
 To provision:
 
 ```
@@ -95,15 +101,74 @@ ansible-playbook -i localhost, deprovision.yml --ask-vault-pass
 
 Skip `--ask-vault-pass` if you aren't using Ansible Vault for the sensitive values.
 
+## What does success look like?
+
+The following prompt before the playbook terminates:
+
+```
+[pause]
+Deployment complete.
+
+Equinix Gateway is available at <gateway_ip>
+  ssh root@<gateway_ip> -i <ssh_key_path>
+
+vCenter is available at https://<vcenter_ip>
+
+vCenter credentials are Administrator@vsphere.local / <vsphere_pass_here>
+
+API and apps URLs for up to 3 have been configured:
+
+  Cluster 1
+    - https://api.vsphere1.metal.adamgoossens.com
+    - *.apps.vsphere1.metal.adamgoossens.com (both HTTP and HTTPS)
+    
+    API VIP: 172.16.0.10
+    Apps VIP: 172.16.0.11
+
+  Cluster 2
+    - https://api.vsphere2.metal.<base_domain>
+    - *.apps.vsphere2.metal.<base_domain> (both HTTP and HTTPS)
+    
+    API VIP: 172.16.0.20
+    Apps VIP: 172.16.0.21
+
+  Cluster 3
+    - https://api.vsphere3.metal.<base_domain>
+    - *.apps.vsphere3.metal.<base_domain> (both HTTP and HTTPS)
+    
+    API VIP: 172.16.0.30
+    Apps VIP: 172.16.0.31
+
+
+The cluster URLs above will resolve to the Elastic IP of the AWS gateway 
+node from outside vSphere; they will resolve to the respective VIPs from within vSphere.
+
+vSphere certificate is available in the file vc.pem in this directory.
+
+A Secret has been created that will add this vSphere instance as a provider
+connection in ACM; see the file vsphere-acm-secret.yaml in this directory. Create that
+Secret into a namespace of your choosing and a new provider should appear in ACM labelled
+'vsphere-equinix'.
+```
+
+You will have a Kubernetes secret named `vsphere-acm-secret.yaml` in your playbook local directory -
+use this to quickly add vSphere as a provider to ACM.
+
 ## What can I configure?
 
 See `group_vars/all/all.yml` ; these are documented.
 
 You may wish to provide the sensitive values in an Ansible Vault; the default values in `group_vars/all/all.yml` assume this.
 
+## I don't like the default cluster name prefix 'vsphere'. Can I change that?
+
+Yes, see `cluster_name_prefix` in `group_vars/all/all.yml`.
+
 ## Can I provision more than one ESXi host?
 
-Yes, but you'll probably want to change the `esxi_host_size` variable to something smaller, like `c3.medium.x86`.
+Yes, see the `esxi_host_count` variable.
+
+You'll probably want to change the `esxi_host_size` variable to something smaller, like `c3.medium.x86`.
 
 This will also trigger some additional deployment logic in the Equinix terraform, namely the configuration of vSAN. YMMV here.
 

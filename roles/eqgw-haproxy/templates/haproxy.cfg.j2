@@ -26,18 +26,18 @@ defaults
     maxconn                 3000
 
 frontend http
-    bind *:80
+    bind {{ ansible_host }}:80
 
 {% for n in range(max_clusters) %}
 {% set i=n+1 %}
-    acl v{{i}} hdr(host) -i apps.vsphere{{i}}.{{ base_domain }}
+    acl v{{i}} hdr(host) -i apps.{{cluster_name_prefix}}{{i}}.{{ base_domain }}
     use_backend bk_v{{i}}_api if v{{i}}
 
 {% endfor %}
 
 frontend ssl
-    bind *:443
-    bind *:6443
+    bind {{ ansible_host }}:443
+    bind {{ ansible_host }}:6443
 
     mode tcp
 
@@ -46,8 +46,8 @@ frontend ssl
 
 {% for n in range(max_clusters) %}
 {% set i=n+1 %}
-    acl v{{i}}_api    req_ssl_sni api.vsphere{{i}}.{{ base_domain }}
-    acl v{{i}}_apps   req_ssl_sni -m end .apps.vsphere{{i}}.{{ base_domain }}
+    acl v{{i}}_api    req_ssl_sni api.{{cluster_name_prefix}}{{i}}.{{ base_domain }}
+    acl v{{i}}_apps   req_ssl_sni -m end .apps.{{cluster_name_prefix}}{{i}}.{{ base_domain }}
     use_backend bk_v{{i}}_api if v{{i}}_api
     use_backend bk_v{{i}}_apps_ssl if v{{i}}_apps
 

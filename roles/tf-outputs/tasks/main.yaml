@@ -1,6 +1,6 @@
 - name: check if eq terraform.tfstate exists
   stat:
-    path: "{{ playbook_dir }}/terraform/terraform.tfstate"
+    path: "{{ playbook_dir }}/terraform-equinix/terraform.tfstate"
   register: eq_tfstate
   delegate_to: localhost
   connection: local
@@ -21,7 +21,7 @@
     base_domain: "{{ tfstate.outputs.vcenter_fqdn.value.split('.')[1:] | join('.') }}"
     hosted_zone: "{{ tfstate.outputs.vcenter_fqdn.value.split('.')[2:] | join('.') }}"
   vars:
-    tfstate: "{{ lookup('file', 'terraform/terraform.tfstate') | from_json }}"
+    tfstate: "{{ lookup('file', 'terraform-equinix/terraform.tfstate') | from_json }}"
 
 - name: parse tfstate for aws
   when:

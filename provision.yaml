@@ -4,6 +4,7 @@
   roles:
     - tf-outputs
     - local-provision
+    - local-certs-and-hosts
   pre_tasks:
     - name: check for all required variables
       fail:
@@ -18,32 +19,12 @@
         - s3_access_key
         - s3_secret_key
         - s3_vcenter_iso_name
-
-- hosts: localhost
-  gather_facts: false
-  connection: local
-  roles:
-    - tf-outputs
-    - local-certs-and-hosts
   post_tasks:
-    - add_host:
-        name: metalgw
-        ansible_host: "{{ aws_outputs.gw_fqdn.value }}"
-        ansible_user: 'fedora'
-        ansible_ssh_private_key_file: "terraform-aws/id_rsa_metalgw"
-
     - add_host:
         name: eqgw
         ansible_host: "{{ eq_outputs.bastion_host.value }}"
         ansible_ssh_private_key_file: "{{ eq_outputs.ssh_key_path.value.replace('$HOME', lookup('env', 'HOME')) }}"
         ansible_user: 'root'
-
-- hosts: metalgw
-  roles:
-    - tf-outputs
-    - mgw-keys-and-packages
-    - mgw-haproxy
-    - mgw-vpn
 
 - hosts: eqgw
   gather_facts: false
@@ -52,6 +33,7 @@
     - eqgw-dns-and-certs
     - eqgw-registry
     - eqgw-release-mirror
+    - eqgw-haproxy
 
 - hosts: localhost
   gather_facts: false
@@ -59,9 +41,6 @@
     - pause:
         prompt: |
           Deployment complete.
-
-          AWS Gateway Node is available at {{ hostvars['metalgw']['ansible_host'] }}:
-            ssh fedora@ {{ hostvars['metalgw']['ansible_host'] }} -i terraform-aws/id_rsa_metalgw
 
           Equinix Gateway is available at {{ hostvars['eqgw']['ansible_host'] }}
             ssh root@{{ hostvars['eqgw']['ansible_host'] }} -i {{ eq_outputs.ssh_key_path.value }}
@@ -75,8 +54,8 @@
           {% for n in range(max_clusters) %}
           {% set i=n+1 %}
             Cluster {{i}}
-              - https://api.vsphere{{i}}.{{ base_domain }}
-              - *.apps.vsphere{{i}}.{{ base_domain }} (both HTTP and HTTPS)
+              - https://api.{{cluster_name_prefix}}{{i}}.{{ base_domain }}
+              - *.apps.{{cluster_name_prefix}}{{i}}.{{ base_domain }} (both HTTP and HTTPS)
               
               API VIP: 172.16.0.{{i}}0
               Apps VIP: 172.16.0.{{i}}1
