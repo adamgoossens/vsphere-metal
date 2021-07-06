@@ -46,7 +46,7 @@
         facility_to_find:
           facility: "{{ item }}"
           plan: "m3.large.x86"
-          quantity: "1"
+          quantity: "{{ esxi_host_count }}"
       loop: "{{ available_facilities }}"
 
     - name: check if we can provision into available metros
