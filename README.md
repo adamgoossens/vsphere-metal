@@ -4,14 +4,19 @@ This repository uses existing Equinix Terraform to deploy a single node vSphere 
 
 ## Pre-requisites
 
+### Equinix Pre-requisites
 * An account at [metal.equinix.com](https://metal.equinix.com)
 * An API token for the Equinix API.
 * An organization created via the Equinix metal console (take note of the organisation's UUID).
 * A Project created via the Equinix metal console (take note of the project's UUID).
+
+### AWS Pre-requisites
 * An AWS S3 bucket - preferably not publically accessible.
+* A Route53 base domain available in AWS and accessible via your IAM credentials.
 * AWS IAM credentials (access/secret key) for provisioning AWS instances/VPCs/Route53 records/etc.
 * AWS IAM credentials (access/secret key) for accessing your S3 bucket.
-* A Route53 base domain available in AWS and accessible via your IAM credentials.
+
+### Terraform Pre-requisites
 * Terraform 1.0.0 installed on your Ansible controller.
 
 ## Architecture
@@ -119,8 +124,8 @@ vCenter credentials are Administrator@vsphere.local / <vsphere_pass_here>
 API and apps URLs for up to 3 have been configured:
 
   Cluster 1
-    - https://api.vsphere1.metal.adamgoossens.com
-    - *.apps.vsphere1.metal.adamgoossens.com (both HTTP and HTTPS)
+    - https://api.vsphere1.metal.<base_domain>
+    - *.apps.vsphere1.metal.<base_domain> (both HTTP and HTTPS)
     
     API VIP: 172.16.0.10
     Apps VIP: 172.16.0.11
