@@ -79,6 +79,22 @@ The `provision.yml` playbook perform the following tasks:
 14. Generate an `install-config-content-sources.yaml` and `imagecontentsourcepolicy.yaml` for disconnected deployments.
 15. Dump a collection of needed detail to the screen.
 
+## How do I run this?
+
+To provision:
+
+```
+ansible-playbook -i localhost, provision.yml --ask-vault-pass
+```
+
+To deprovision:
+
+```
+ansible-playbook -i localhost, deprovision.yml --ask-vault-pass
+```
+
+Skip `--ask-vault-pass` if you aren't using Ansible Vault for the sensitive values.
+
 ## What can I configure?
 
 See `group_vars/all/all.yml` ; these are documented.
@@ -101,6 +117,23 @@ The default ESXi host used here (`m3.large.x86`) has the following specification
 
 More than enough for a few OCP clusters.
 
+## How long does it take?
+
+60 minutes. 99% of that time is waiting for ESXi and vCenter to provision with Terraform.
+
+Definitely something you want to spin up early if you have a demonstration planned.
+
+## Is it safe to run multiple times?
+
+Yes, however the Terraform portion will be skipped once the `terraform.tfstate` file exists. It will not try to
+run it twice. The rest is just standard Ansible modules.
+
+## How much does this cost?
+
+Currently, as of July 2021, the prices for the environment are around $2 - $2.50 USD per hour. It takes at least an hour to provision.
+
+Best not to leave this running long term.
+
 ## What can go wrong?
 
 There's a few ways the provisioning can go sideways. The solution in all cases is to deprovision and start again.
@@ -120,8 +153,4 @@ provisioning. Unfortunately there's no way back here - deprovision the environme
 Brace yourself for a failure - once again, there's not enough capacity for the ESXi host. Let the playbook fail, then deprovision
 and start again with a different facility.
 
-## How much does this cost?
 
-Currently, as of July 2021, the prices for the environment are around $2 - $2.50 USD per hour. It takes at least an hour to provision.
-
-Best not to leave this running long term.
