@@ -32,7 +32,8 @@ haproxy is deployed onto the Equinix edge gateway. This terminates incoming conn
 `443`, `6443` and `80`. haproxy proxies the incoming connection to the appropriate VIP on the `172.16.0.0/24` network.
 
 To support multiple incoming cluster URLs on the one public IP, haproxy applies Layer 7 routing based on 
-Server Name Indication.
+Server Name Indication. For example, incoming requests to a hostname of `api.vsphere1.<base_domain>` would be proxied
+to the VIP `172.16.0.10`.
 
 ### Fixed cluster VIPs
 
@@ -62,8 +63,11 @@ The `provision.yml` playbook perform the following tasks:
 2. Assuming a new deployment, it will query Route53 and present a list of the available Route53 hosted zones.
 3. The user chooses one of these; this becomes the 'base domain' for the deployment.
 4. Equinix environment provisioning starts:
-    1. The `terraform.tfvars` file is generated for `terraform-equinix` using variables set in `group_vars/all/all.yml`.
-    2. `terraform apply` is run to deploy the Equinix environment. **This takes at least 60 minutes**.
+    1. The Equinix provisioning API is queried to find viable facilities (datacenters) that can host the two servers.
+    2. The user is presented with the matching facilities; choose one of them.
+    3. The `terraform.tfvars` file is generated for `terraform-equinix` using variables set in `group_vars/all/all.yml`.
+    4. `terraform apply` is run to deploy the Equinix environment. **This takes at least 60 minutes**.
+5. AWS provisioning occurs to add the required Route53 record (we use a very short TTL here to account for dynamic environments).
 6. Fetch the vCenter CA certificate and store it locally on the Ansible host.
 7. Deploy haproxy and template haproxy config.
 8. Establish some additional `dnsmasq` records needed for local resolution.
@@ -74,3 +78,20 @@ The `provision.yml` playbook perform the following tasks:
 13. Mirror the target openshift release into this registry.
 14. Generate an `install-config-content-sources.yaml` and `imagecontentsourcepolicy.yaml` for disconnected deployments.
 15. Dump a collection of needed detail to the screen.
+
+## What can go wrong?
+
+### Equinix provisioning fails due to not enough capacity
+
+Sometimes there's just not enough capacity in a facility, contrary to what the API says. Deprovision and try again with
+a different facility.
+
+### Equinix provisioning fails due to a timeout error
+
+This happens occasionally, and always when provisioning ESXi. The ESXi server never finishes and Equinix's API kills the
+provisioning. Unfortunately there's no way back here - deprovision the environment and start again.
+
+### Provisioning starts, but I can't see the 'esx01' server in my Equinix server list?
+
+Brace yourself for a failure - once again, there's not enough capacity for the ESXi host. Let the playbook fail, then deprovision
+and start again with a different facility.
