@@ -4,7 +4,7 @@
   tasks:
     - name: tear down Equinix environment
       community.general.terraform:
-        project_path: 'terraform/'
+        project_path: 'terraform-equinix/'
         state: absent
 
     - name: tear down AWS environment
@@ -19,4 +19,4 @@
       file:
         path: "{{ item }}/terraform.tfstate"
         state: absent
-      loop: ['terraform', 'terraform-aws']
+      loop: ['terraform-equinix', 'terraform-aws']
